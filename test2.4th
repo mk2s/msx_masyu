@@ -37,6 +37,15 @@ ARRAY( INT: BOARD 100 )
 2 >> BOARD [ y 10 * x + ]
 ;
 
+: TO-XY PARAM( I )
+/* given index into board we return
+  x and y as needed by set-black/white */
+VAR( X Y )
+I 10 / >> Y
+I Y 10 * - /* this leaves X on tos */
+Y
+;
+
 : INIT-BOARD
 VAR( I )
 0 >> I
@@ -44,38 +53,37 @@ WHILE( I 100 < ){
     0 >> BOARD [ I ]
     I 1 + >> I
 }
-/* manually enter 10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0 */
-/* white circle at 5,0 */
-5 0 SET-WHITE
-/* white circle at 7,0 */
-7 0 SET-WHITE
-/* white circle at 2,1 */
-2 1 SET-WHITE
-/* white at 2,2 */
-2 2 SET-WHITE
-/* black at 6&7, 2 */
-6 2 SET-BLACK
-7 2 SET-BLACK
-/* white at 0&2, 3 */
-0 3 SET-WHITE
-2 3 SET-WHITE
-/* white at 2&4, 4 */
-2 4 SET-WHITE
-4 4 SET-WHITE
-/* black at 9, 4 */
-9 4 SET-BLACK
-/* black at 6, 5 */
-6 5 SET-BLACK
-0 6 SET-WHITE
-8 6 SET-WHITE
-0 7 SET-WHITE
-2 7 SET-BLACK
-5 7 SET-WHITE
-6 7 SET-WHITE
-7 7 SET-WHITE
-7 8 SET-WHITE
-2 9 SET-WHITE
-4 9 SET-WHITE
+;
+
+: INTO-BOARD PARAM( BOARD-STR )
+/* input like: 10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0 
+  we are also assumig this is going to be all lowercase atm
+ BOARD-STR is a pointer to the string */
+VAR( C P ) /* C = char we ar processing P = index into board array */
+ 0 >> P
+ BOARD-STR 6 + >> BOARD-STR /* skip the 10x10: bit */
+ BOARD-STR C@ >> C
+ {
+  '0' C = IF{
+  P TO-XY SET-WHITE
+  P 1 + >> P
+  }{
+  '1' C = IF{
+  P TO-XY SET-BLACK
+  P 1 + >> P
+  }|
+  'a' C <=
+  'z' C >=
+  AND IF{
+  /* 96 is the char before lower a */
+  C 96 - P + >> P /* move forward P by letter amount */
+  }|
+    "ERROR parsing" STR. EXIT
+  }
+  BOARD-STR 1 + >> BOARD-STR
+  BOARD-STR C@ >> C
+  C 0 <>  /* repeate until null */
+ }WHILE
 ;
 
 : DISP-CELL PARAM( CELL )
@@ -117,6 +125,7 @@ WHILE( I 10 < ){
  1 VSYNC
  SETUPCHARS
  INIT-BOARD
+ "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
  DISP-BOARD
  ;
 
