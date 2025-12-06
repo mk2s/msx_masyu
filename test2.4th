@@ -1,4 +1,6 @@
-_FREE H.
+/* dimentions of the board */
+10 CONST>> BOARD-WIDTH
+10 CONST>> BOARD-HEIGHT
 
 /* direction values */
 8 CONST>> DIRN
@@ -84,26 +86,26 @@ $10 $10 $10 $FF $10 $10 $10 $10  /* empty NSEW       */
 ARRAY( INT: BOARD 100 )
 
 : SET-WHITE PARAM( x y )
-1 >> BOARD [ y 10 * x + ]
+1 >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
 : SET-BLACK PARAM( x y )
-2 >> BOARD [ y 10 * x + ]
+2 >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
 : TO-XY PARAM( I )
 /* given index into board we return
   x and y as needed by set-black/white */
 VAR( X Y )
-I 10 / >> Y
-I Y 10 * - /* this leaves X on tos */
+I BOARD-WIDTH / >> Y
+I Y BOARD-WIDTH * - /* this leaves X on tos */
 Y
 ;
 
 : INIT-BOARD
 VAR( I )
 0 >> I
-WHILE( I 100 < ){
+WHILE( I BOARD-WIDTH BOARD-HEIGHT * < ){
     0 >> BOARD [ I ]
     I 1 + >> I
 }
@@ -131,10 +133,10 @@ DIR DIRW = IF{
 /* given a board index and a direction return the index of the board
 after moving in the direction */
 DIR DIRN = IF{
-    IDX 10 -
+    IDX BOARD-WIDTH -
 }{
 DIR DIRS = IF{
-    IDX 10 +
+    IDX BOARD-WIDTH +
 }|
 DIR DIRE = IF{
     IDX 1 +
@@ -143,6 +145,27 @@ DIR DIRW = IF{
     IDX 1 -
 }|
   DIR . SPACE "illegal direction in GET-NEIGHBOR" STR. EXIT
+}
+;
+
+: CAN-MOVE PARAM( IDX DIR )
+/* given an index into the board and a direction, return a bool indicating
+whether we can move from IDX to that cell. */
+VAR( X Y )
+IDX TO-XY >> Y >> X
+DIR DIRN = IF{
+    0 Y <  /* can move N if Y is greater than 0 */
+}{
+DIR DIRS = IF{
+    BOARD-HEIGHT 1 - Y > /* can move S if Y is less than board height minus 1 */ 
+}|
+DIR DIRE = IF{
+    BOARD-WIDTH 1 - X > /* can move E if X is less that board width minus 1 */
+}|
+DIR DIRW = IF{
+    0 X < /* can move W if X is greater than 1 */
+}|
+  DIR . SPACE "illegal direction in CAN-MOVE" STR. EXIT
 }
 ;
 
@@ -208,8 +231,8 @@ DIR-PART + CHPUT
 : DISP-ROW PARAM( ROW )
 VAR( I )
 0 >> I
-WHILE( I 10 < ){
-    BOARD [ ROW 10 * I + ] DISP-CELL
+WHILE( I BOARD-WIDTH < ){
+    BOARD [ ROW BOARD-WIDTH * I + ] DISP-CELL
     I 1 + >> I
 }
 ;
@@ -328,7 +351,6 @@ WHILE( I 10 < ){
  DISP-BOARD
  /* BOARD [ 3 ] . CRLF */
  ;
-_ENDFREE H. SPACE _FREE H.
 END MAIN
 
 
