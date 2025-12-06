@@ -1,3 +1,11 @@
+_FREE H.
+
+/* direction values */
+8 CONST>> DIRN
+4 CONST>> DIRE
+2 CONST>> DIRS
+1 CONST>> DIRW
+
 : cls 
 $c3 BIOS
 ;
@@ -53,6 +61,46 @@ WHILE( I 100 < ){
     0 >> BOARD [ I ]
     I 1 + >> I
 }
+;
+
+/* N->S S->N E->W W->E */
+: OPPOSITDIR PARAM( DIR )
+DIR DIRN = IF{
+    DIRS
+}{
+DIR DIRS = IF{
+    DIRN
+}|
+DIR DIRE = IF{
+    DIRW
+}|
+    DIRE
+}
+;
+
+/* assuming it is ok, connect cell IDX with its neighbor DIR */
+/* if you need to know if that's safe, call CAN-CONNECT */
+/* when connecting a cell we will set the cell's bit conrresponding to */
+/* the edge it's connecting as well as the neighbor's matching edge */
+/* so if this cell's N is connecting then the cell above this will have */
+/* it's S connecting to this cell */
+/* for display these two parts are separate, but operationally half a */
+/* connection is not possible to create */
+: CONNECT PARAM( IDX DIR )
+VAR( NEIGHBOR )
+BOARD [ IDX ] 256 DIR * OR >> BOARD [ IDX ]
+DIR DIRN = IF{
+    IDX 10 - >> NEIGHBOR
+}{
+DIR DIRS = IF{
+    IDX 10 + >> NEIGHBOR
+}|
+DIR DIRE = IF{
+    IDX 1 + >> NEIGHBOR
+}|
+    IDX 1 - >> NEIGHBOR
+}
+BOARD [ NEIGHBOR ] 256 DIR OPPOSITDIR * OR >> BOARD [ NEIGHBOR ]
 ;
 
 : INTO-BOARD PARAM( BOARD-STR )
@@ -125,10 +173,12 @@ WHILE( I 10 < ){
  1 VSYNC
  SETUPCHARS
  INIT-BOARD
- "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
+ "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
+ 1 DIRE CONNECT
+ 2 DIRE CONNECT
  DISP-BOARD
  ;
-
+_ENDFREE H. _FREE H.
 END MAIN
 
 
