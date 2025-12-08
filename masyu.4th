@@ -8,8 +8,44 @@
 2 CONST>> DIRS
 1 CONST>> DIRW
 
+/* cursor position on the board */
+VAR( BOARD-POS )
+
 : cls 
+/* MSX BIOS CALL to initialize screen */
 $c3 BIOS
+;
+
+: POSIT
+/* MSX BIOS call POSIT for positioning cursor takes _HL */
+$c6 BIOS
+;
+
+: GTSTCK PARAM( N )
+/* get stick value 
+up down left right => 1 5 7 3
+N selects between arrow keys, stick1 and stick2
+*/
+N >> _A
+$d5 BIOS
+_A
+;
+
+: MOVE-CURSOR PARAM( x y )
+/* x y are screen coordinates */
+256 x * y + >> _HL POSIT
+;
+
+: STRXY PARAM( x y s )
+/* move cursor to screen coordinates and print string */
+x y MOVE-CURSOR
+s STR.
+;
+
+: WAIT PARAM( COUNT )
+VAR( I )
+0 >> I
+WHILE( I COUNT < ){ I 1 + >> I }
 ;
 
 : SETUPCHARS
@@ -93,12 +129,12 @@ ARRAY( INT: BOARD 100 )
 2 >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
-: TO-XY PARAM( I )
+: TO-XY PARAM( IDX )
 /* given index into board we return
   x and y as needed by set-black/white */
 VAR( X Y )
-I BOARD-WIDTH / >> Y
-I Y BOARD-WIDTH * - /* this leaves X on tos */
+IDX BOARD-WIDTH / >> Y
+IDX Y BOARD-WIDTH * - /* this leaves X on tos */
 Y
 ;
 
@@ -109,6 +145,7 @@ WHILE( I BOARD-WIDTH BOARD-HEIGHT * < ){
     0 >> BOARD [ I ]
     I 1 + >> I
 }
+0 >> BOARD-POS
 ;
 
 /* N->S S->N E->W W->E */
@@ -238,119 +275,98 @@ WHILE( I BOARD-WIDTH < ){
 ;
 
 : DISP-BOARD
-"\$80\$81\$81\$81\$81\$81\$81\$81\$81\$81\$81\$82" STR. CRLF
+/* display the inside of the board ie no boarders */
 VAR( I )
 0 >> I
 WHILE( I 10 < ){
-    $83 CHPUT /* left border */
+    2 5 I + MOVE-CURSOR
     I DISP-ROW
-    $87 CHPUT CRLF
     I 1 + >> I
 }
-"\$84\$85\$85\$85\$85\$85\$85\$85\$85\$85\$85\$86" STR. CRLF
+;
+
+: TOPOFBOX
+1 4 "\$80\$81\$81\$81\$81\$81\$81\$81\$81\$81\$81\$82" STRXY
+;
+
+: BOTTOMOFBOX
+1 15 "\$84\$85\$85\$85\$85\$85\$85\$85\$85\$85\$85\$86" STRXY
+;
+
+: SIDESOFBOX
+VAR( I )
+1 >> I
+WHILE( I 10 <= ){
+    1 4 I + "\$83\$20\$20\$20\$20\$20\$20\$20\$20\$20\$20\$87" STRXY
+    I 1 + >> I
+}
+;
+
+: PAINT-SCRN
+ 15 2 "MASYU" STRXY
+ 17 15 "USE ARRORW TO" STRXY
+ 17 16 "MOVE.  HOLD" STRXY
+ 17 17 "SHIFT TO DRAW" STRXY
+ 17 18 "HOLD CTL TO" STRXY
+ 17 19 "ERASE." STRXY
+ 17 21 "F1 FOR HELP" STRXY
+ TOPOFBOX SIDESOFBOX BOTTOMOFBOX
+;
+
+: STICK-TO-DIR PARAM( I )
+/* zero means error */
+I 1 = IF{ /* up */
+    DIRN
+}{
+I 5 = IF{ /* down */
+    DIRS
+}|
+I 7 = IF{ /* left */
+    DIRW
+}|
+I 3 = IF{
+    DIRE
+}|
+  0
+}
+;
+
+: MOVE-BOARD PARAM( IDX )
+/* given a board position move cursor to that position and update BOARD-POS */
+VAR( X Y )
+IDX >> BOARD-POS
+IDX TO-XY >> Y >> X
+X 2 + Y 5 + MOVE-CURSOR
+;
+
+: PROCESS-INPUT PARAM( I )
+VAR( DIR )
+I 0 <> IF{
+  I STICK-TO-DIR >> DIR
+  DIR 0 <> IF{
+    BOARD-POS DIR CAN-MOVE IF{ BOARD-POS DIR GET-NEIGHBOR MOVE-BOARD }
+    { /* continue reading until zero to clear key down */
+        0 GTSTCK
+        0 <>
+    }WHILE
+  }
+}
 ;
 
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
  cls
  1 VSYNC
- SETUPCHARS
+ SETUPCHARS PAINT-SCRN
  INIT-BOARD
  "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
- /* hand built test data */
- 1 DIRE CONNECT
- 2 DIRE CONNECT
- 3 DIRS CONNECT
- 13 DIRS CONNECT
- 23 DIRW CONNECT
- 22 DIRW CONNECT
- 21 DIRS CONNECT
- 31 DIRE CONNECT
- 32 DIRS CONNECT
- 42 DIRS CONNECT
- 52 DIRE CONNECT
- 53 DIRN CONNECT
- 43 DIRN CONNECT
- 33 DIRE CONNECT
- 34 DIRE CONNECT
- 35 DIRE CONNECT
- 36 DIRE CONNECT
- 37 DIRN CONNECT
- 27 DIRW CONNECT
- 26 DIRW CONNECT
- 25 DIRW CONNECT
- 24 DIRN CONNECT
- 14 DIRN CONNECT
- 4  DIRE CONNECT
- 5 DIRE CONNECT
- 6 DIRE CONNECT
- 7 DIRS CONNECT
- 17 DIRE CONNECT
- 18 DIRE CONNECT
- 19 DIRS CONNECT
- 29 DIRS CONNECT
- 39 DIRS CONNECT
- 49 DIRW CONNECT
- 48 DIRW CONNECT
- 47 DIRW CONNECT
- 46 DIRW CONNECT
- 45 DIRW CONNECT
- 44 DIRS CONNECT
- 54 DIRE CONNECT
- 55 DIRE CONNECT
- 56 DIRE CONNECT
- 57 DIRE CONNECT
- 58 DIRE CONNECT
- 59 DIRS CONNECT
- 69 DIRS CONNECT
- 79 DIRW CONNECT
- 78 DIRN CONNECT
- 68 DIRW CONNECT
- 67 DIRS CONNECT
- 77 DIRS CONNECT
- 87 DIRE CONNECT
- 88 DIRE CONNECT
- 89 DIRS CONNECT
- 99 DIRW CONNECT
- 98 DIRW CONNECT
- 97 DIRW CONNECT
- 96 DIRN CONNECT
- 86 DIRW CONNECT
- 85 DIRW CONNECT
- 84 DIRS CONNECT
- 94 DIRW CONNECT
- 93 DIRW CONNECT
- 92 DIRN CONNECT
- 82 DIRN CONNECT
- 72 DIRE CONNECT
- 73 DIRE CONNECT
- 74 DIRE CONNECT
- 75 DIRE CONNECT
- 76 DIRN CONNECT
- 66 DIRW CONNECT
- 65 DIRW CONNECT
- 64 DIRW CONNECT
- 63 DIRW CONNECT
- 62 DIRW CONNECT
- 61 DIRS CONNECT
- 71 DIRS CONNECT
- 81 DIRS CONNECT
- 91 DIRW CONNECT
- 90 DIRN CONNECT
- 80 DIRN CONNECT
- 70 DIRN CONNECT
- 60 DIRN CONNECT
- 50 DIRE CONNECT
- 51 DIRN CONNECT
- 41 DIRW CONNECT
- 40 DIRN CONNECT
- 30 DIRN CONNECT
- 20 DIRN CONNECT
- 10 DIRE CONNECT
- 11 DIRN CONNECT
  DISP-BOARD
- /* BOARD [ 3 ] . CRLF */
- ;
+ 0 MOVE-BOARD
+ { 
+0 GTSTCK PROCESS-INPUT
+ }
+;
+
 END MAIN
 
 
