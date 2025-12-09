@@ -229,11 +229,18 @@ IDX DIR GET-NEIGHBOR >> NEIGHBOR
 BOARD [ NEIGHBOR ] 256 DIR OPPOSITDIR * OR >> BOARD [ NEIGHBOR ]
 ;
 
+: UNSET PARAM( BITS DIR )
+/* given contents of board a 16bit int and a direction
+remove the direction bit from the upper 8bits 
+CPL flips all 16 bits */
+BITS DIR CPL 256 * 255 + AND
+;
+
 : DISCONNECT PARAM( IDX DIR )
 VAR( NEIGHBOR )
-BOARD [ IDX ] 256 DIR * OR >> BOARD [ IDX ]
+BOARD [ IDX ] DIR UNSET >> BOARD [ IDX ]
 IDX DIR GET-NEIGHBOR >> NEIGHBOR
-BOARD [ NEIGHBOR ] 256 DIR OPPOSITDIR * OR >> BOARD [ NEIGHBOR ]
+BOARD [ NEIGHBOR ] DIR OPPOSITDIR UNSET >> BOARD [ NEIGHBOR ]
 ;
 
 : INTO-BOARD PARAM( BOARD-STR )
@@ -365,8 +372,8 @@ IDX MOVE-SCREEN
 3= both pressed */
 6 >> _A
 $141 BIOS
-/* shift is bit0 ctl is bit1 */
-_A 3 AND
+/* shift is bit0 ctl is bit1; bits are inverted */
+_A CPL 3 AND
 ;
 
 : MOVE-CONNECT-CLEAR PARAM( IDX DIR )
@@ -377,7 +384,7 @@ MOD 1 = IF{
 }{
 MOD 2 = IF{
   IDX DIR DISCONNECT
-}
+} /* if both are pressed we ignore both */
 }
 IDX DIR GET-NEIGHBOR MOVE-BOARD
 ;
