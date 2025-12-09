@@ -31,9 +31,26 @@ $d5 BIOS
 _A
 ;
 
+: TO-XY PARAM( IDX )
+/* given index into board we return
+  x and y as needed by set-black/white */
+VAR( Y )
+IDX BOARD-WIDTH / >> Y
+IDX Y BOARD-WIDTH * - /* this leaves X on tos */
+Y
+;
+
 : MOVE-CURSOR PARAM( x y )
 /* x y are screen coordinates */
 256 x * y + >> _HL POSIT
+;
+
+: MOVE-SCREEN PARAM( IDX )
+/* given a board index position move
+screen cursor to the right place */
+VAR( X Y )
+IDX TO-XY >> Y >> X
+X 2 + Y 5 + MOVE-CURSOR
 ;
 
 : STRXY PARAM( x y s )
@@ -129,15 +146,6 @@ ARRAY( INT: BOARD 100 )
 2 >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
-: TO-XY PARAM( IDX )
-/* given index into board we return
-  x and y as needed by set-black/white */
-VAR( X Y )
-IDX BOARD-WIDTH / >> Y
-IDX Y BOARD-WIDTH * - /* this leaves X on tos */
-Y
-;
-
 : INIT-BOARD
 VAR( I )
 0 >> I
@@ -207,7 +215,7 @@ DIR DIRW = IF{
 ;
 
 /* assuming it is ok, connect cell IDX with its neighbor DIR */
-/* if you need to know if that's safe, call CAN-CONNECT */
+/* if you need to know if that's safe, call CAN-MOVE */
 /* when connecting a cell we will set the cell's bit conrresponding to */
 /* the edge it's connecting as well as the neighbor's matching edge */
 /* so if this cell's N is connecting then the cell above this will have */
@@ -215,6 +223,13 @@ DIR DIRW = IF{
 /* for display these two parts are separate, but operationally half a */
 /* connection is not possible to create */
 : CONNECT PARAM( IDX DIR )
+VAR( NEIGHBOR )
+BOARD [ IDX ] 256 DIR * OR >> BOARD [ IDX ]
+IDX DIR GET-NEIGHBOR >> NEIGHBOR
+BOARD [ NEIGHBOR ] 256 DIR OPPOSITDIR * OR >> BOARD [ NEIGHBOR ]
+;
+
+: DISCONNECT PARAM( IDX DIR )
 VAR( NEIGHBOR )
 BOARD [ IDX ] 256 DIR * OR >> BOARD [ IDX ]
 IDX DIR GET-NEIGHBOR >> NEIGHBOR
@@ -331,20 +346,54 @@ I 3 = IF{
 }
 ;
 
+: PAINT-CELL PARAM( IDX )
+/* given a IDX update screen for that cell
+based on the board */
+IDX MOVE-SCREEN
+BOARD [ IDX ] DISP-CELL
+;
+
 : MOVE-BOARD PARAM( IDX )
 /* given a board position move cursor to that position and update BOARD-POS */
 VAR( X Y )
 IDX >> BOARD-POS
-IDX TO-XY >> Y >> X
-X 2 + Y 5 + MOVE-CURSOR
+IDX MOVE-SCREEN
+;
+
+: GET-MODIFIERS
+/* returns 0 for neither 1=SHIFT only, 2=CTL only
+3= both pressed */
+6 >> _A
+$141 BIOS
+/* shift is bit0 ctl is bit1 */
+_A 3 AND
+;
+
+: MOVE-CONNECT-CLEAR PARAM( IDX DIR )
+VAR( MOD )
+GET-MODIFIERS >> MOD
+MOD 1 = IF{
+  IDX DIR CONNECT
+}{
+MOD 2 = IF{
+  IDX DIR DISCONNECT
+}
+}
+IDX DIR GET-NEIGHBOR MOVE-BOARD
 ;
 
 : PROCESS-INPUT PARAM( I )
-VAR( DIR )
+VAR( DIR OLD-POS )
 I 0 <> IF{
   I STICK-TO-DIR >> DIR
   DIR 0 <> IF{
-    BOARD-POS DIR CAN-MOVE IF{ BOARD-POS DIR GET-NEIGHBOR MOVE-BOARD }
+    BOARD-POS DIR CAN-MOVE IF{ 
+        BOARD-POS >> OLD-POS
+        BOARD-POS DIR MOVE-CONNECT-CLEAR /* this will update BOARD-POS */
+        BOARD-POS PAINT-CELL
+        OLD-POS PAINT-CELL
+        BOARD-POS MOVE-SCREEN /* ? */
+    }
     { /* continue reading until zero to clear key down */
         0 GTSTCK
         0 <>
@@ -362,7 +411,7 @@ I 0 <> IF{
  "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
  DISP-BOARD
  0 MOVE-BOARD
- { 
+ { /* main loop */
 0 GTSTCK PROCESS-INPUT
  }
 ;
