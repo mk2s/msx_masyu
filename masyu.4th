@@ -313,6 +313,43 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
  }WHILE
 ;
 
+: FIRST-CHECK 
+/* this word will leave number of white circles found on tos
+number of black circles below that, and below that a boolean
+indicating whether the word was successful.  False means
+something went wrong and the number of circles returned
+is invalid.
+
+Should I put the check for white needs straight through and
+turns on next square, black needs to turn inside and have
+two unit straight legs?
+*/
+TRUE 10 10
+;
+
+: SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
+/* start from zero and step through the board looking for a cell with
+a line.  If/when found mark that as the starting point and then follow
+the line.  Because of the first check we know we will return to this
+point.  When we return compare the number of circles to expected
+number of circles.  Return true if they match return false otherwise
+*/
+TRUE
+;
+
+: END-check
+/* First check to see for each cell that if it's empty then 0 or two connections
+and if cell has circle then must have two connections.  Then check that we can
+traverse all circles by following the line. */
+VAR( NUM-WHITE NUM-BLACK )
+  FIRST-CHECK >> NUM-WHITE >> NUM-BLACK
+  IF{
+    NUM-WHITE NUM-BLACK SECOND-CHECK
+  }{
+    FALSE
+  }
+;
+
 : DISP-CELL PARAM( CELL )
 /* the direction part 0~15 becomes offset into font table */
 VAR( CIRCLE-PART DIR-PART )
@@ -445,58 +482,63 @@ CHSNS IF{
 }
 ;
 
+: MAIN-PROCESS-KEY PARAM( I )
+/* I is key code
+returns 0 if didn't process
+1 if processed and need refresh
+2 if processed and don't need refresh
+*/
+VAR( NEXTKEY )
+I 113 = IF{ /* q */
+  5 23 "QUIT ?(y/n)" STRXY
+  { /* loop to handle quit dialog */
+    GET-INPUT >> NEXTKEY
+    NEXTKEY 0= IF{
+      0
+    }{
+    NEXTKEY 121 = IF{ /* y */
+        EXIT
+    }|
+      1
+    }
+    0=
+  }WHILE
+  1 /* we processed and need a screen refresh */
+}{
+  0 /* didn't process and don't need refresh */
+}
+;
+
 : PROCESS-INPUT PARAM( I )
-VAR( DIR OLD-POS )
+/* I is the key code if any
+  This word returns a bool indicating whether
+  the screen needs to be redrawn.
+*/
+VAR( DIR OLD-POS RESULT )
 I 0 <> IF{
-  I STICK-TO-DIR >> DIR
-  DIR 0 <> IF{
-    BOARD-POS DIR CAN-MOVE IF{ 
+  I MAIN-PROCESS-KEY >> RESULT
+  RESULT 0 <> IF{
+    RESULT 1 = IF{
+      TRUE
+    }{
+      FALSE
+    }
+  }{
+    I STICK-TO-DIR >> DIR
+    DIR 0 <> IF{
+      BOARD-POS DIR CAN-MOVE IF{ 
         BOARD-POS >> OLD-POS
         BOARD-POS DIR MOVE-CONNECT-CLEAR /* this will update BOARD-POS */
         BOARD-POS PAINT-CELL
         OLD-POS PAINT-CELL
         BOARD-POS MOVE-SCREEN /* do I still need this? */
+      }
     }
+    FALSE /* no need to redraw */
   }
+}{
+  FALSE
 }
-FALSE /* start by not redrawing */
-;
-
-: FIRST-CHECK 
-/* this word will leave number of white circles found on tos
-number of black circles below that, and below that a boolean
-indicating whether the word was successful.  False means
-something went wrong and the number of circles returned
-is invalid.
-
-Should I put the check for white needs straight through and
-turns on next square, black needs to turn inside and have
-two unit straight legs?
-*/
-TRUE 10 10
-;
-
-: SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
-/* start from zero and step through the board looking for a cell with
-a line.  If/when found mark that as the starting point and then follow
-the line.  Because of the first check we know we will return to this
-point.  When we return compare the number of circles to expected
-number of circles.  Return true if they match return false otherwise
-*/
-TRUE
-;
-
-: END-check
-/* First check to see for each cell that if it's empty then 0 or two connections
-and if cell has circle then must have two connections.  Then check that we can
-traverse all circles by following the line. */
-VAR( NUM-WHITE NUM-BLACK )
-  FIRST-CHECK >> NUM-WHITE >> NUM-BLACK
-  IF{
-    NUM-WHITE NUM-BLACK SECOND-CHECK
-  }{
-    FALSE
-  }
 ;
 
 : MAIN
