@@ -195,6 +195,18 @@ WHILE( I BOARD-WIDTH BOARD-HEIGHT * < ){
 0 >> BOARD-POS
 ;
 
+: RESET-BOARD
+/* keep circles, but earase the lines */
+VAR( I MAXI )
+0 >> I
+BOARD-WIDTH BOARD-HEIGHT * >> MAXI
+WHILE( I MAXI < ){
+  BOARD [ I ] $FF AND >> BOARD [ I ]
+  I 1 + >> I
+}
+0 >> BOARD-POS
+;
+
 /* N->S S->N E->W W->E */
 : OPPOSITDIR PARAM( DIR )
 DIR DIRN = IF{
@@ -381,6 +393,7 @@ WHILE( I 10 < ){
     I DISP-ROW
     I 1 + >> I
 }
+BOARD-POS MOVE-SCREEN
 ;
 
 : TOPOFBOX
@@ -482,35 +495,74 @@ CHSNS IF{
 }
 ;
 
+: DO-RESET-BOARD
+/* DO-* words are like dialogs we
+wait for certain keys to proceed
+In this case we prompt to reset board
+if y then reset board and n will
+return to main screen without resetting
+*/
+VAR( NEXTKEY )
+5 23 "Reset board? (y/n)" STRXY
+{ /* loop to handle dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+  NEXTKEY 121 = IF{ /* y */
+    RESET-BOARD
+    1
+  }|
+    1
+  }
+  0=
+}WHILE
+1 /* we processed and need a screen refresh */
+;
+
+: DO-CHECK-QUIT
+/* prompt for quit and do so if y */
+VAR( NEXTKEY )
+5 23 "QUIT ?(y/n)" STRXY
+{ /* loop to handle quit dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+    NEXTKEY 121 = IF{ /* y */
+    EXIT
+  }|
+    1
+  }
+  0=
+}WHILE
+1 /* we processed and need a screen refresh */
+;
+
+: DO-CHECK-BOARD
+;
+
 : MAIN-PROCESS-KEY PARAM( I )
 /* I is key code
 returns 0 if didn't process
 1 if processed and need refresh
 2 if processed and don't need refresh
 */
-VAR( NEXTKEY )
 I 113 = IF{ /* q */
-  5 23 "QUIT ?(y/n)" STRXY
-  { /* loop to handle quit dialog */
-    GET-INPUT >> NEXTKEY
-    NEXTKEY 0= IF{
-      0
-    }{
-    NEXTKEY 121 = IF{ /* y */
-        EXIT
-    }|
-      1
-    }
-    0=
-  }WHILE
-  1 /* we processed and need a screen refresh */
+  DO-CHECK-QUIT
 }{
+I 99 = IF{ /* c */
+  DO-CHECK-BOARD
+}|
+I 114 = IF{ /* r */
+  DO-RESET-BOARD
+}|
   0 /* didn't process and don't need refresh */
 }
 ;
 
 : PROCESS-INPUT PARAM( I )
-/* I is the key code if any
+/* I is the key code.  Zero if no key pressed
   This word returns a bool indicating whether
   the screen needs to be redrawn.
 */
@@ -529,9 +581,9 @@ I 0 <> IF{
       BOARD-POS DIR CAN-MOVE IF{ 
         BOARD-POS >> OLD-POS
         BOARD-POS DIR MOVE-CONNECT-CLEAR /* this will update BOARD-POS */
-        BOARD-POS PAINT-CELL
         OLD-POS PAINT-CELL
-        BOARD-POS MOVE-SCREEN /* do I still need this? */
+        BOARD-POS PAINT-CELL
+        BOARD-POS MOVE-SCREEN /* after we paint a cell we're one to the right so nudge back */
       }
     }
     FALSE /* no need to redraw */
@@ -547,13 +599,13 @@ I 0 <> IF{
  SETUPCHARS
  INIT-BOARD
  "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
+ 0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
    IF{
      CLS
      PAINT-SCRN
      DISP-BOARD
-     0 MOVE-BOARD
    }
    GET-INPUT /* leaves key code on tos */
    PROCESS-INPUT /* puts redraw on tos */
