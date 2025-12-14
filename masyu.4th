@@ -8,10 +8,15 @@
 2 CONST>> DIRS
 1 CONST>> DIRW
 
+/* GLOBALS */
 /* cursor position on the board */
 VAR( BOARD-POS )
 
-: cls 
+/* END GLOBALS */
+
+
+/* utility words */
+: CLS
 /* MSX BIOS CALL to initialize screen */
 $c3 BIOS
 ;
@@ -30,6 +35,15 @@ $9c BIOS
 _F $40 AND $40 <>
 ;
 
+: DRAIN-KEYBUFFER
+WHILE( CHSNS ){
+  /* throw away the rest of the chars this
+    is necessary for the case where a function key
+    stuffs more than one char in the buffer */
+  CHGET DROP
+}
+;
+
 : INIFNK
 /* initialize function keys */
 $3e BIOS
@@ -44,6 +58,23 @@ N >> _A
 $d5 BIOS
 _A
 ;
+
+: WAIT PARAM( COUNT )
+VAR( I )
+0 >> I
+WHILE( I COUNT < ){ I 1 + >> I }
+;
+
+: GET-MODIFIERS
+/* returns 0 for neither 1=SHIFT only, 2=CTL only
+3= both pressed */
+6 >> _A
+$141 BIOS
+/* shift is bit0 ctl is bit1; bits are inverted */
+_A CPL 3 AND
+;
+
+/* Board related words */
 
 : TO-XY PARAM( IDX )
 /* given index into board we return
@@ -71,12 +102,6 @@ X 2 + Y 5 + MOVE-CURSOR
 /* move cursor to screen coordinates and print string */
 x y MOVE-CURSOR
 s STR.
-;
-
-: WAIT PARAM( COUNT )
-VAR( I )
-0 >> I
-WHILE( I COUNT < ){ I 1 + >> I }
 ;
 
 : SETUPCHARS
@@ -381,15 +406,6 @@ IDX >> BOARD-POS
 IDX MOVE-SCREEN
 ;
 
-: GET-MODIFIERS
-/* returns 0 for neither 1=SHIFT only, 2=CTL only
-3= both pressed */
-6 >> _A
-$141 BIOS
-/* shift is bit0 ctl is bit1; bits are inverted */
-_A CPL 3 AND
-;
-
 : MOVE-CONNECT-CLEAR PARAM( IDX DIR )
 VAR( MOD )
 GET-MODIFIERS >> MOD
@@ -401,15 +417,6 @@ MOD 2 = IF{
 } /* if both are pressed we ignore both */
 }
 IDX DIR GET-NEIGHBOR MOVE-BOARD
-;
-
-: DRAIN-KEYBUFFER
-WHILE( CHSNS ){
-  /* throw away the rest of the chars this
-    is necessary for the case where a function key
-    stuffs more than one char in the buffer */
-  CHGET DROP
-}
 ;
 
 : GET-INPUT
@@ -452,21 +459,62 @@ I 0 <> IF{
     }
   }
 }
+FALSE /* start by not redrawing */
+;
+
+: FIRST-CHECK 
+/* this word will leave number of white circles found on tos
+number of black circles below that, and below that a boolean
+indicating whether the word was successful.  False means
+something went wrong and the number of circles returned
+is invalid.
+
+Should I put the check for white needs straight through and
+turns on next square, black needs to turn inside and have
+two unit straight legs?
+*/
+TRUE 10 10
+;
+
+: SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
+/* start from zero and step through the board looking for a cell with
+a line.  If/when found mark that as the starting point and then follow
+the line.  Because of the first check we know we will return to this
+point.  When we return compare the number of circles to expected
+number of circles.  Return true if they match return false otherwise
+*/
+TRUE
+;
+
+: END-check
+/* First check to see for each cell that if it's empty then 0 or two connections
+and if cell has circle then must have two connections.  Then check that we can
+traverse all circles by following the line. */
+VAR( NUM-WHITE NUM-BLACK )
+  FIRST-CHECK >> NUM-WHITE >> NUM-BLACK
+  IF{
+    NUM-WHITE NUM-BLACK SECOND-CHECK
+  }{
+    FALSE
+  }
 ;
 
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
- cls
  INIFNK
  SETUPCHARS
- PAINT-SCRN
  INIT-BOARD
  "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
- DISP-BOARD
- 0 MOVE-BOARD
+ TRUE /* start by redrawing screen */
  { /* main loop */
-   GET-INPUT
-   PROCESS-INPUT
+   IF{
+     CLS
+     PAINT-SCRN
+     DISP-BOARD
+     0 MOVE-BOARD
+   }
+   GET-INPUT /* leaves key code on tos */
+   PROCESS-INPUT /* puts redraw on tos */
  }
 ;
 
