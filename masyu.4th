@@ -21,6 +21,20 @@ $c3 BIOS
 $c6 BIOS
 ;
 
+: CHSNS
+/* MSX BIOS call to check for key status. Z flag set if buffer empty
+we return true if there's a key that needs to be read
+note that shift and ctl do not seem to register as needing to
+be read by CHSNS but arrow keys do */
+$9c BIOS
+_F $40 AND $40 <>
+;
+
+: INIFNK
+/* initialize function keys */
+$3e BIOS
+;
+
 : GTSTCK PARAM( N )
 /* get stick value 
 up down left right => 1 5 7 3
@@ -389,6 +403,41 @@ MOD 2 = IF{
 IDX DIR GET-NEIGHBOR MOVE-BOARD
 ;
 
+: DRAIN-KEYBUFFER
+WHILE( CHSNS ){
+  /* throw away the rest of the chars this
+    is necessary for the case where a function key
+    stuffs more than one char in the buffer */
+  CHGET DROP
+}
+;
+
+: GET-INPUT
+/* to make things compatible with 0 GTSTCK 
+I'm remapping right arrow -> 3 left arrow -> 7 etc. */
+VAR( CHAR )
+CHSNS IF{
+  CHGET >> CHAR
+  CHAR 28 = IF{ /* right arrow */
+    3
+  }{
+  CHAR 29 = IF{ /* left arrow */
+    7
+  }|
+  CHAR 30 = IF{ /* up arrow */
+    1
+  }|
+  CHAR 31 = IF{ /* down arrow */
+    5
+  }|
+  DRAIN-KEYBUFFER
+  CHAR
+  }
+}{
+  0
+}
+;
+
 : PROCESS-INPUT PARAM( I )
 VAR( DIR OLD-POS )
 I 0 <> IF{
@@ -399,12 +448,8 @@ I 0 <> IF{
         BOARD-POS DIR MOVE-CONNECT-CLEAR /* this will update BOARD-POS */
         BOARD-POS PAINT-CELL
         OLD-POS PAINT-CELL
-        BOARD-POS MOVE-SCREEN /* ? */
+        BOARD-POS MOVE-SCREEN /* do I still need this? */
     }
-    { /* continue reading until zero to clear key down */
-        0 GTSTCK
-        0 <>
-    }WHILE
   }
 }
 ;
@@ -412,14 +457,16 @@ I 0 <> IF{
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
  cls
- 1 VSYNC
- SETUPCHARS PAINT-SCRN
+ INIFNK
+ SETUPCHARS
+ PAINT-SCRN
  INIT-BOARD
  "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
  DISP-BOARD
  0 MOVE-BOARD
  { /* main loop */
-0 GTSTCK PROCESS-INPUT
+   GET-INPUT
+   PROCESS-INPUT
  }
 ;
 

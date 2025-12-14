@@ -1,4 +1,4 @@
-this is a MSX game written in [H-Forth](https://github.com/MIN0/H-FORTH_MSX)  The source file masyu.4th generates masyu.com file which can be packages into a DSK file and run in emulators.  This program is designed to run on MSX1 as well as any later MSX.
+this is a MSX game written in [H-Forth](https://github.com/MIN0/H-FORTH_MSX)  The source file masyu.4th generates masyu.com file which can be packaged into a DSK file and run in emulators.  This program is designed to run on MSX1 as well as any later MSX.
 
 The program was written to submit to MSXDEV25
 
