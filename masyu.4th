@@ -540,6 +540,11 @@ VAR( NEXTKEY )
 ;
 
 : DO-CHECK-BOARD
+1
+;
+
+: DO-HELP
+1
 ;
 
 : MAIN-PROCESS-KEY PARAM( I )
@@ -556,6 +561,9 @@ I 99 = IF{ /* c */
 }|
 I 114 = IF{ /* r */
   DO-RESET-BOARD
+}|
+I 104 = IF{ /* h for help */
+  DO-HELP
 }|
   0 /* didn't process and don't need refresh */
 }
@@ -596,9 +604,11 @@ I 0 <> IF{
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
  INIFNK
+ 'h' $F87F C! /* set F1 to h */
+ $FF $F880 C!
  SETUPCHARS
  INIT-BOARD
- "10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" INTO-BOARD
+ "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
