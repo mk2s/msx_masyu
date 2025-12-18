@@ -1,6 +1,6 @@
 /* dimentions of the board */
-10 CONST>> BOARD-WIDTH
-10 CONST>> BOARD-HEIGHT
+8 CONST>> BOARD-WIDTH
+12 CONST>> BOARD-HEIGHT
 
 /* direction values */
 8 CONST>> DIRN
@@ -175,7 +175,7 @@ $10 $10 $10 $FF $10 $10 $10 $10  /* empty NSEW       */
 */
 
 /* board is 10x10 row at a time */
-ARRAY( INT: BOARD 100 )
+ARRAY( INT: BOARD 96 )
 
 : SET-WHITE PARAM( x y )
 1 >> BOARD [ y BOARD-WIDTH * x + ]
@@ -300,7 +300,7 @@ BOARD [ NEIGHBOR ] DIR OPPOSITDIR UNSET >> BOARD [ NEIGHBOR ]
  BOARD-STR is a pointer to the string */
 VAR( C P ) /* C = char we ar processing P = index into board array */
  0 >> P
- BOARD-STR 6 + >> BOARD-STR /* skip the 10x10: bit */
+ BOARD-STR 5 + >> BOARD-STR /* skip the 10x10: bit */
  BOARD-STR C@ >> C
  {
   '0' C = IF{
@@ -388,7 +388,7 @@ WHILE( I BOARD-WIDTH < ){
 /* display the inside of the board ie no boarders */
 VAR( I )
 0 >> I
-WHILE( I 10 < ){
+WHILE( I BOARD-HEIGHT < ){
     2 5 I + MOVE-CURSOR
     I DISP-ROW
     I 1 + >> I
@@ -396,19 +396,33 @@ WHILE( I 10 < ){
 BOARD-POS MOVE-SCREEN
 ;
 
+: TOP-OR-BOTTOM PARAM( Y L M R )
+VAR( I )
+1 Y MOVE-CURSOR
+L CHPUT
+0 >> I
+WHILE( I BOARD-WIDTH < ){
+  M CHPUT
+  I 1 + >> I
+}
+R CHPUT
+;
+
+
 : TOPOFBOX
-1 4 "\$80\$81\$81\$81\$81\$81\$81\$81\$81\$81\$81\$82" STRXY
+/* $80-82 are char code for left middle right of the top edge */
+4 $80 $81 $82 TOP-OR-BOTTOM
 ;
 
 : BOTTOMOFBOX
-1 15 "\$84\$85\$85\$85\$85\$85\$85\$85\$85\$85\$85\$86" STRXY
+5 BOARD-HEIGHT + $84 $85 $86 TOP-OR-BOTTOM
 ;
 
 : SIDESOFBOX
 VAR( I )
 1 >> I
-WHILE( I 10 <= ){
-    1 4 I + "\$83\$20\$20\$20\$20\$20\$20\$20\$20\$20\$20\$87" STRXY
+WHILE( I BOARD-HEIGHT <= ){
+    4 I + $83 $20 $87 TOP-OR-BOTTOM
     I 1 + >> I
 }
 ;
@@ -608,7 +622,7 @@ I 0 <> IF{
  $FF $F880 C!
  SETUPCHARS
  INIT-BOARD
- "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
+ "8x12:b0f1d0f1g1a00a0h0f0a1f1n0c0a0c0f1c1" INTO-BOARD
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
