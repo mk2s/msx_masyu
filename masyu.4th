@@ -929,6 +929,9 @@ IF{
 ;
 
 : DO-HELP
+CLS
+PAINT-HELP
+CHGET DROP
 1
 ;
 
@@ -1058,9 +1061,8 @@ I 0 <> IF{
  { /* main loop */
    IF{
      CLS
-     PAINT-HELP
-     /* PAINT-SCRN */
-     /* DISP-BOARD */
+     PAINT-SCRN
+     DISP-BOARD
    }
    GET-INPUT /* leaves key code on tos */
    PROCESS-INPUT /* puts redraw on tos */
