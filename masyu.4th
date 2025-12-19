@@ -8,6 +8,10 @@
 2 CONST>> DIRS
 1 CONST>> DIRW
 
+0 CONST>> EMPTY
+1 CONST>> WHITE
+2 CONST>> BLACK
+
 /* GLOBALS */
 /* cursor position on the board */
 VAR( BOARD-POS )
@@ -178,18 +182,18 @@ $10 $10 $10 $FF $10 $10 $10 $10  /* empty NSEW       */
 ARRAY( INT: BOARD 96 )
 
 : SET-WHITE PARAM( x y )
-1 >> BOARD [ y BOARD-WIDTH * x + ]
+WHITE >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
 : SET-BLACK PARAM( x y )
-2 >> BOARD [ y BOARD-WIDTH * x + ]
+BLACK >> BOARD [ y BOARD-WIDTH * x + ]
 ;
 
 : INIT-BOARD
 VAR( I )
 0 >> I
 WHILE( I BOARD-WIDTH BOARD-HEIGHT * < ){
-    0 >> BOARD [ I ]
+    EMPTY >> BOARD [ I ]
     I 1 + >> I
 }
 0 >> BOARD-POS
@@ -325,6 +329,20 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
  }WHILE
 ;
 
+: CELL-TO-PARTS PARAM( CELL )
+/* leaves DIR-PART on tos and below that CIRCLE-PART */
+CELL $FF AND
+CELL 256 /
+;
+
+/* an array of number of bits for first 16 numbers
+initialized at runtime */
+ARRAY( BYTE: BIT-COUNT 0 )
+
+: COUNT-CONNECTIONS PARAM( DIR-PART )
+BIT-COUNT [ DIR-PART $F AND ]
+;
+
 : FIRST-CHECK 
 /* this word will leave number of white circles found on tos
 number of black circles below that, and below that a boolean
@@ -336,7 +354,47 @@ Should I put the check for white needs straight through and
 turns on next square, black needs to turn inside and have
 two unit straight legs?
 */
-TRUE 10 10
+VAR( IDX CIRCLE-PART DIR-PART WHITE-CNT BLACK-CNT CONN-CNT RESULT )
+0 >> IDX
+0 >> WHITE-CNT
+0 >> BLACK-CNT
+TRUE >> RESULT
+WHILE( IDX BOARD-WIDTH BOARD-HEIGHT * < ){
+  BOARD [ IDX ] CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
+  DIR-PART COUNT-CONNECTIONS >> CONN-CNT
+  CIRCLE-PART EMPTY = IF{
+    CONN-CNT 0 =
+    CONN-CNT 2 =
+    OR  /* 0 or 2 is ok */
+    IF{
+      /* do nothing */
+    }{
+      FALSE >> RESULT
+      BREAK
+    }
+  }{ /* circle so must have exactly two connections */
+  CIRCLE-PART WHITE = IF{
+    CONN-CNT 2 = IF{
+      WHITE-CNT 1 + >> WHITE-CNT
+    }{
+      FALSE >> RESULT
+      BREAK
+    }
+  }|
+  CIRCLE-PART BLACK = IF{
+    CONN-CNT 2 = IF{
+      BLACK-CNT 1 + >> BLACK-CNT
+    }{
+      FALSE >> RESULT
+      BREAK
+    }
+  }|
+    "ERROR IN FIRST-CHECK CIRCLE-PART wrong" STR.
+    EXIT
+  }
+  IDX 1 + >> IDX
+} /* end while */
+RESULT BLACK-CNT WHITE-CNT
 ;
 
 : SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
@@ -365,8 +423,7 @@ VAR( NUM-WHITE NUM-BLACK )
 : DISP-CELL PARAM( CELL )
 /* the direction part 0~15 becomes offset into font table */
 VAR( CIRCLE-PART DIR-PART )
-CELL $FF AND >> CIRCLE-PART
-CELL 256 / >> DIR-PART
+CELL CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
 CIRCLE-PART 0 = IF{ $a8 }{
 CIRCLE-PART 1 = IF{ $88 }|
 CIRCLE-PART 2 = IF{ $98 }|
@@ -554,6 +611,26 @@ VAR( NEXTKEY )
 ;
 
 : DO-CHECK-BOARD
+VAR( NEXTKEY WHITE-CNT BLACK-CNT )
+FIRST-CHECK >> WHITE-CNT >> BLACK-CNT
+IF{
+  5 23 "TRUE -- hit any key to continue" STRXY
+  CRLF WHITE-CNT . BLACK-CNT .
+}{
+  5 23 "FALSE -- hit any key to continue" STRXY
+}
+{ /* loop to handle quit dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+    NEXTKEY 121 = IF{ /* y */
+    1
+  }|
+    1
+  }
+  0=
+}WHILE
 1
 ;
 
@@ -617,6 +694,7 @@ I 0 <> IF{
 
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
+ DATA( BYTE: 0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4 ) ARRAY>> BIT-COUNT
  INIFNK
  'h' $F87F C! /* set F1 to h */
  $FF $F880 C!
