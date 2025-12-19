@@ -212,7 +212,7 @@ WHILE( I MAXI < ){
 ;
 
 /* N->S S->N E->W W->E */
-: OPPOSITDIR PARAM( DIR )
+: OPPOSIT-DIR PARAM( DIR )
 DIR DIRN = IF{
     DIRS
 }{
@@ -225,7 +225,7 @@ DIR DIRE = IF{
 DIR DIRW = IF{
     DIRE
 }|
-    DIR . SPACE "illegal direction in OPPOSITDIR" STR. EXIT
+    DIR . SPACE "illegal direction in OPPOSIT-DIR" STR. EXIT
 }
 ;
 
@@ -281,7 +281,7 @@ DIR DIRW = IF{
 VAR( NEIGHBOR )
 BOARD [ IDX ] 256 DIR * OR >> BOARD [ IDX ]
 IDX DIR GET-NEIGHBOR >> NEIGHBOR
-BOARD [ NEIGHBOR ] 256 DIR OPPOSITDIR * OR >> BOARD [ NEIGHBOR ]
+BOARD [ NEIGHBOR ] 256 DIR OPPOSIT-DIR * OR >> BOARD [ NEIGHBOR ]
 ;
 
 : UNSET PARAM( BITS DIR )
@@ -295,7 +295,7 @@ BITS DIR CPL 256 * 255 + AND
 VAR( NEIGHBOR )
 BOARD [ IDX ] DIR UNSET >> BOARD [ IDX ]
 IDX DIR GET-NEIGHBOR >> NEIGHBOR
-BOARD [ NEIGHBOR ] DIR OPPOSITDIR UNSET >> BOARD [ NEIGHBOR ]
+BOARD [ NEIGHBOR ] DIR OPPOSIT-DIR UNSET >> BOARD [ NEIGHBOR ]
 ;
 
 : INTO-BOARD PARAM( BOARD-STR )
@@ -397,6 +397,62 @@ WHILE( IDX BOARD-WIDTH BOARD-HEIGHT * < ){
 RESULT BLACK-CNT WHITE-CNT
 ;
 
+: PICK-LOWEST-DIR PARAM( DIR )
+DIR DIRW AND DIRW = IF{
+    DIRW
+}{
+DIR DIRS AND DIRS = IF{
+    DIRS
+}|
+DIR DIRE AND DIRE = IF{
+    DIRE
+}|
+DIR DIRN AND DIRN = IF{
+    DIRN
+}|
+  0
+}
+;
+
+: FIND-FIRST-NONEMPTY
+/* returns the index of the first cell with a line
+as well as a direction to traverse next */
+VAR( IDX MAX DIR VEC )
+0 >> IDX
+0 >> VEC
+BOARD-WIDTH BOARD-HEIGHT * >> MAX
+{
+  BOARD [ IDX ] 256 / >> DIR
+  DIR 0 <> IF{
+    DIR PICK-LOWEST-DIR OPPOSIT-DIR >> VEC
+    BREAK
+  }
+  IDX 1 + >> IDX
+  IDX MAX <
+}WHILE
+IDX MAX = IF{
+  "FIND-FIRST-NONEMPTY coudn't find" STR. EXIT
+}{
+  VEC IDX
+}
+;
+
+: TRAVERSE PARAM( IDX VEC )
+/* VEC is the direction we took to arrive at current
+cell IDX.  Opposit of VEC is the way back to the
+previous cell so we want to avoid that.  We assume
+each cell we traverse has exactly two directions.
+we return next VEC on tos and next IDX below that.
+*/
+VAR( NEW-VEC )
+VEC OPPOSIT-DIR CPL $F AND /* complement bits of opposit */
+BOARD [ IDX ] 256 / /* extract dirs from current cell */
+AND /* this is the direction to the next cell */
+>> NEW-VEC
+IDX NEW-VEC GET-NEIGHBOR /* leaves next idx on stack */
+NEW-VEC
+;
+
 : SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
 /* start from zero and step through the board looking for a cell with
 a line.  If/when found mark that as the starting point and then follow
@@ -404,10 +460,30 @@ the line.  Because of the first check we know we will return to this
 point.  When we return compare the number of circles to expected
 number of circles.  Return true if they match return false otherwise
 */
-TRUE
+VAR( FIRST IVEC IDX BLACK-CNT WHITE-CNT CIRCLE-PART )
+0 >> BLACK-CNT 0 >> WHITE-CNT
+FIND-FIRST-NONEMPTY >> FIRST >> IVEC
+FIRST >> IDX
+/* IDX holds current cell index and IVEC holds direction we
+took to arrive at current cell. */
+{
+  BOARD [ IDX ] $FF AND >> CIRCLE-PART
+  CIRCLE-PART BLACK = IF{
+    BLACK-CNT 1 + >> BLACK-CNT
+  }{
+  CIRCLE-PART WHITE = IF{
+    WHITE-CNT 1 + >> WHITE-CNT
+  }|
+  }
+  IDX IVEC TRAVERSE >> IVEC >> IDX
+  IDX FIRST <> /* continue while it's not the start point */
+}WHILE
+NUM-WHITE WHITE-CNT =
+NUM-BLACK BLACK-CNT =
+AND
 ;
 
-: END-check
+: END-CHECK
 /* First check to see for each cell that if it's empty then 0 or two connections
 and if cell has circle then must have two connections.  Then check that we can
 traverse all circles by following the line. */
@@ -612,10 +688,9 @@ VAR( NEXTKEY )
 
 : DO-CHECK-BOARD
 VAR( NEXTKEY WHITE-CNT BLACK-CNT )
-FIRST-CHECK >> WHITE-CNT >> BLACK-CNT
+END-CHECK
 IF{
   5 23 "TRUE -- hit any key to continue" STRXY
-  CRLF WHITE-CNT . BLACK-CNT .
 }{
   5 23 "FALSE -- hit any key to continue" STRXY
 }
