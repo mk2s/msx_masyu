@@ -1,6 +1,6 @@
 /* dimentions of the board */
-8 CONST>> BOARD-WIDTH
-12 CONST>> BOARD-HEIGHT
+10 CONST>> BOARD-WIDTH
+10 CONST>> BOARD-HEIGHT
 
 /* direction values */
 8 CONST>> DIRN
@@ -179,7 +179,7 @@ $10 $10 $10 $FF $10 $10 $10 $10  /* empty NSEW       */
 */
 
 /* board is 10x10 row at a time */
-ARRAY( INT: BOARD 96 )
+ARRAY( INT: BOARD 100 )
 
 : SET-WHITE PARAM( x y )
 WHITE >> BOARD [ y BOARD-WIDTH * x + ]
@@ -304,7 +304,7 @@ BOARD [ NEIGHBOR ] DIR OPPOSIT-DIR UNSET >> BOARD [ NEIGHBOR ]
  BOARD-STR is a pointer to the string */
 VAR( C P ) /* C = char we ar processing P = index into board array */
  0 >> P
- BOARD-STR 5 + >> BOARD-STR /* skip the 10x10: bit */
+ BOARD-STR 6 + >> BOARD-STR /* skip the 10x10: bit */
  BOARD-STR C@ >> C
  {
   '0' C = IF{
@@ -329,10 +329,14 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
  }WHILE
 ;
 
+: GET-DIRS PARAM( CELL )
+CELL 256 /
+;
+
 : CELL-TO-PARTS PARAM( CELL )
 /* leaves DIR-PART on tos and below that CIRCLE-PART */
 CELL $FF AND
-CELL 256 /
+CELL GET-DIRS
 ;
 
 /* an array of number of bits for first 16 numbers
@@ -398,6 +402,8 @@ RESULT BLACK-CNT WHITE-CNT
 ;
 
 : PICK-LOWEST-DIR PARAM( DIR )
+/* DIR can hold two directions so
+pick the lowest bit value first */
 DIR DIRW AND DIRW = IF{
     DIRW
 }{
@@ -422,7 +428,7 @@ VAR( IDX MAX DIR VEC )
 0 >> VEC
 BOARD-WIDTH BOARD-HEIGHT * >> MAX
 {
-  BOARD [ IDX ] 256 / >> DIR
+  BOARD [ IDX ] GET-DIRS >> DIR
   DIR 0 <> IF{
     DIR PICK-LOWEST-DIR OPPOSIT-DIR >> VEC
     BREAK
@@ -446,18 +452,111 @@ we return next VEC on tos and next IDX below that.
 */
 VAR( NEW-VEC )
 VEC OPPOSIT-DIR CPL $F AND /* complement bits of opposit */
-BOARD [ IDX ] 256 / /* extract dirs from current cell */
+BOARD [ IDX ] GET-DIRS /* extract dirs from current cell */
 AND /* this is the direction to the next cell */
 >> NEW-VEC
 IDX NEW-VEC GET-NEIGHBOR /* leaves next idx on stack */
 NEW-VEC
 ;
 
+: IS-90 PARAM( DIR )
+/* return true iff the two directions are 90 degrees
+to each other */
+VAR( LOWEST )
+DIR PICK-LOWEST-DIR >> LOWEST
+LOWEST DIRW = IF{
+  DIR DIRS AND DIRS =
+  DIR DIRN AND DIRN =
+  OR
+}{
+LOWEST DIRS = IF{
+  DIR DIRE AND DIRE =
+}|
+LOWEST DIRE = IF{
+  DIR DIRN AND DIRN =
+}|
+LOWEST DIRN = IF{
+  "IS-90 bad argument:" STR. DIR . EXIT
+}|
+  "IS-90 bad argument:" STR. DIR . EXIT
+}
+;
+
+: IS-180 PARAM( DIR )
+/* return true iff the two directions are 180 degrees
+to each other.  We assume there are only two directions
+in the given DIR */
+VAR( LOWEST )
+DIR PICK-LOWEST-DIR >> LOWEST
+LOWEST DIRW = IF{
+  DIR DIRE AND DIRE =
+}{
+  /* must be south-north */
+  DIR DIRS AND DIRS =
+  DIR DIRN AND DIRN =
+  AND
+}
+;
+
+: IS-2-STRAIGHT PARAM( DIR IDX )
+/* DIR is the direction we took to get to IDX.
+  IDX is the cell adjacent to the black circle.
+  we want to make sure this cell is 180 line and
+  the next cell has connection opposit of DIR.
+  Return TRUE if so.
+*/
+VAR( NEXT OP BOTHDIR )
+DIR OPPOSIT-DIR >> OP
+DIR OP OR >> BOTHDIR
+BOARD [ IDX ] GET-DIRS BOTHDIR = IF{
+  IDX DIR GET-NEIGHBOR >> NEXT
+  BOARD [ NEXT ] GET-DIRS OP AND OP =
+}{
+  FALSE
+}
+;
+
+: VALID-BLACK PARAM( IDX )
+/* returns TRUE iff black circle at IDX has
+directions in 90 degrees and each leg is at least
+two units without turning.  Assumes IDX has exactly
+two connections */
+VAR( DIR LOWEST )
+BOARD [ IDX ] GET-DIRS >> DIR
+DIR IS-90 IF{
+  DIR PICK-LOWEST-DIR >> LOWEST
+  LOWEST IDX LOWEST GET-NEIGHBOR IS-2-STRAIGHT IF{
+    LOWEST CPL $F AND DIR AND /* the other direction */
+    IDX OVER GET-NEIGHBOR
+    IS-2-STRAIGHT /* return the result */
+  }{
+    FALSE /* lowest dir leg not 2 */
+  }
+}{
+  FALSE /* not 90 */
+}
+;
+
+: VALID-WHITE PARAM( IDX )
+/* returns TRUE iff white circle has directions
+in 180 degrees and a turn in the next square */
+VAR( DIR LOWEST )
+BOARD [ IDX ] GET-DIRS >> DIR
+DIR IS-180 IF{
+  DIR PICK-LOWEST-DIR >> LOWEST
+  BOARD [ IDX LOWEST GET-NEIGHBOR ] GET-DIRS IS-90 
+  BOARD [ IDX LOWEST CPL $F AND DIR AND GET-NEIGHBOR ] GET-DIRS IS-90
+  OR
+}{
+  FALSE /* not 180 */
+}
+;
+
 : SECOND-CHECK PARAM( NUM-WHITE NUM-BLACK )
 /* start from zero and step through the board looking for a cell with
 a line.  If/when found mark that as the starting point and then follow
 the line.  Because of the first check we know we will return to this
-point.  When we return compare the number of circles to expected
+point.  When we return compare the number of valid circles to expected
 number of circles.  Return true if they match return false otherwise
 */
 VAR( FIRST IVEC IDX BLACK-CNT WHITE-CNT CIRCLE-PART )
@@ -469,10 +568,14 @@ took to arrive at current cell. */
 {
   BOARD [ IDX ] $FF AND >> CIRCLE-PART
   CIRCLE-PART BLACK = IF{
-    BLACK-CNT 1 + >> BLACK-CNT
+    IDX VALID-BLACK IF{
+      BLACK-CNT 1 + >> BLACK-CNT
+    }
   }{
   CIRCLE-PART WHITE = IF{
-    WHITE-CNT 1 + >> WHITE-CNT
+    IDX VALID-WHITE IF{
+      WHITE-CNT 1 + >> WHITE-CNT
+    }
   }|
   }
   IDX IVEC TRAVERSE >> IVEC >> IDX
@@ -500,9 +603,9 @@ VAR( NUM-WHITE NUM-BLACK )
 /* the direction part 0~15 becomes offset into font table */
 VAR( CIRCLE-PART DIR-PART )
 CELL CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
-CIRCLE-PART 0 = IF{ $a8 }{
-CIRCLE-PART 1 = IF{ $88 }|
-CIRCLE-PART 2 = IF{ $98 }|
+CIRCLE-PART EMPTY = IF{ $a8 }{
+CIRCLE-PART WHITE = IF{ $88 }|
+CIRCLE-PART BLACK = IF{ $98 }|
   "unexpected circle-part in DISP-CELL" STR. EXIT
 }
 DIR-PART + CHPUT
@@ -713,6 +816,55 @@ IF{
 1
 ;
 
+: DO-TEST
+/* look at current cursor pos and print
+stuff that will be helpful in testing.
+*/
+VAR( NEXTKEY CIRCLE-PART DIR-PART CONN-CNT )
+BOARD [ BOARD-POS ] CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
+CIRCLE-PART BLACK = IF{
+  5 23 "BLACK " STRXY
+  DIR-PART COUNT-CONNECTIONS >> CONN-CNT
+  CONN-CNT 2 = IF{
+    BOARD-POS VALID-BLACK IF{
+      "VALID" STR.
+    }{
+      "NOT VALID" STR.
+    }
+  }{
+    "doesn't have two cons" STR.
+  }
+}{
+CIRCLE-PART WHITE = IF{
+  5 23 "WHITE " STRXY
+  DIR-PART COUNT-CONNECTIONS >> CONN-CNT
+  CONN-CNT 2 = IF{
+    BOARD-POS VALID-WHITE IF{
+      "VALID" STR.
+    }{
+      "NOT VALID" STR.
+    }
+  }{
+    "doesn't have two cons" STR.
+  }
+}|
+  5 23 "EMPTY" STRXY
+}
+{ /* loop to handle quit dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+    NEXTKEY 121 = IF{ /* y */
+    1
+  }|
+    1
+  }
+  0=
+}WHILE
+1
+;
+
 : MAIN-PROCESS-KEY PARAM( I )
 /* I is key code
 returns 0 if didn't process
@@ -730,6 +882,9 @@ I 114 = IF{ /* r */
 }|
 I 104 = IF{ /* h for help */
   DO-HELP
+}|
+I 116 = IF{ /* t for test */
+  DO-TEST
 }|
   0 /* didn't process and don't need refresh */
 }
@@ -775,7 +930,7 @@ I 0 <> IF{
  $FF $F880 C!
  SETUPCHARS
  INIT-BOARD
- "8x12:b0f1d0f1g1a00a0h0f0a1f1n0c0a0c0f1c1" INTO-BOARD
+ "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
