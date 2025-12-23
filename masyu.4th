@@ -1,20 +1,23 @@
-/* dimentions of the board */
-10 CONST>> BOARD-WIDTH
-10 CONST>> BOARD-HEIGHT
-
-/* direction values */
+/* Constants direction values */
 8 CONST>> DIRN
 4 CONST>> DIRE
 2 CONST>> DIRS
 1 CONST>> DIRW
 
+/* CIRCLE types */
 0 CONST>> EMPTY
 1 CONST>> WHITE
 2 CONST>> BLACK
 
 /* GLOBALS */
+/* dimentions of the board */
+VAR( BOARD-WIDTH BOARD-HEIGHT )
+
 /* cursor position on the board */
 VAR( BOARD-POS )
+/* board is dynamically allocated at runtime so
+different size puzzles can be supported */
+ARRAY( INT: BOARD 0 )
 
 /* END GLOBALS */
 
@@ -178,9 +181,6 @@ $10 $10 $10 $FF $10 $10 $10 $10  /* empty NSEW       */
   the lo bite will hold 0=no circle, 1=white circle, 2=black
 */
 
-/* board is 10x10 row at a time */
-ARRAY( INT: BOARD 100 )
-
 : SET-WHITE PARAM( x y )
 WHITE >> BOARD [ y BOARD-WIDTH * x + ]
 ;
@@ -225,7 +225,7 @@ DIR DIRE = IF{
 DIR DIRW = IF{
     DIRE
 }|
-    DIR . SPACE "illegal direction in OPPOSIT-DIR" STR. EXIT
+    DIR . SPACE "illegal direction in OPPOSIT-DIR" ERROR
 }
 ;
 
@@ -244,7 +244,7 @@ DIR DIRE = IF{
 DIR DIRW = IF{
     IDX 1 -
 }|
-  DIR . SPACE "illegal direction in GET-NEIGHBOR" STR. EXIT
+  DIR . SPACE "illegal direction in GET-NEIGHBOR" ERROR
 }
 ;
 
@@ -265,7 +265,7 @@ DIR DIRE = IF{
 DIR DIRW = IF{
     0 X < /* can move W if X is greater than 1 */
 }|
-  DIR . SPACE "illegal direction in CAN-MOVE" STR. EXIT
+  DIR . SPACE "illegal direction in CAN-MOVE" ERROR
 }
 ;
 
@@ -304,7 +304,13 @@ BOARD [ NEIGHBOR ] DIR OPPOSIT-DIR UNSET >> BOARD [ NEIGHBOR ]
  BOARD-STR is a pointer to the string */
 VAR( C P ) /* C = char we ar processing P = index into board array */
  0 >> P
- BOARD-STR 6 + >> BOARD-STR /* skip the 10x10: bit */
+ /* skip the 10x10: bit */
+ BOARD-STR C@ >> C
+ WHILE( C ':' <> ){
+   BOARD-STR 1 + >> BOARD-STR
+   BOARD-STR C@ >> C
+ }
+ BOARD-STR 1 + >> BOARD-STR
  BOARD-STR C@ >> C
  {
   '0' C = IF{
@@ -321,7 +327,7 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
   /* 96 is the char before lower a */
   C 96 - P + >> P /* move forward P by letter amount */
   }|
-    "ERROR parsing" STR. EXIT
+    "ERROR parsing" ERROR
   }
   BOARD-STR 1 + >> BOARD-STR
   BOARD-STR C@ >> C
@@ -393,8 +399,7 @@ WHILE( IDX BOARD-WIDTH BOARD-HEIGHT * < ){
       BREAK
     }
   }|
-    "ERROR IN FIRST-CHECK CIRCLE-PART wrong" STR.
-    EXIT
+    "ERROR IN FIRST-CHECK CIRCLE-PART wrong" ERROR
   }
   IDX 1 + >> IDX
 } /* end while */
@@ -437,7 +442,7 @@ BOARD-WIDTH BOARD-HEIGHT * >> MAX
   IDX MAX <
 }WHILE
 IDX MAX = IF{
-  "FIND-FIRST-NONEMPTY coudn't find" STR. EXIT
+  "FIND-FIRST-NONEMPTY coudn't find" ERROR
 }{
   VEC IDX
 }
@@ -606,7 +611,7 @@ CELL CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
 CIRCLE-PART EMPTY = IF{ $a8 }{
 CIRCLE-PART WHITE = IF{ $88 }|
 CIRCLE-PART BLACK = IF{ $98 }|
-  "unexpected circle-part in DISP-CELL" STR. EXIT
+  "unexpected circle-part in DISP-CELL" ERROR
 }
 DIR-PART + CHPUT
 ;
@@ -925,12 +930,15 @@ I 0 <> IF{
 : MAIN
  1 >> _A  $5F BIOS /* switch to screen 1 */
  DATA( BYTE: 0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4 ) ARRAY>> BIT-COUNT
- INIFNK
+ /* INIFNK */
  'h' $F87F C! /* set F1 to h */
  $FF $F880 C!
  SETUPCHARS
+ 10 >> BOARD-WIDTH
+ 10 >> BOARD-HEIGHT
+ _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
  INIT-BOARD
- "10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" INTO-BOARD
+ "10x10:c0c0i1e00a0c0a0a0d1b0d0d00b0l10a000c0c0c1k0a" INTO-BOARD
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
