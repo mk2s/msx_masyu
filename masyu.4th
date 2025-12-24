@@ -11,7 +11,7 @@
 
 /* GLOBALS */
 /* dimentions of the board */
-VAR( BOARD-WIDTH BOARD-HEIGHT )
+VAR( BOARD-WIDTH BOARD-HEIGHT BOARD-DESC )
 
 /* cursor position on the board */
 VAR( BOARD-POS )
@@ -298,18 +298,81 @@ IDX DIR GET-NEIGHBOR >> NEIGHBOR
 BOARD [ NEIGHBOR ] DIR OPPOSIT-DIR UNSET >> BOARD [ NEIGHBOR ]
 ;
 
+: IS-DIGIT PARAM( C )
+/* assuming C is a char we return TRUE if it's code is between
+$30 and $39 inclusive */
+C $30 >=
+C $39 <=
+AND
+;
+
+: PARSE-2-DIGITS PARAM( P )
+/* P is a pointer to a str. returns int on tos
+then length under it.  If 1st char is not a digit
+then return 0 for length. */
+VAR( C RESULT )
+P C@ >> C
+C IS-DIGIT IF{
+  C '0' - >> RESULT
+  P 1 + >> P
+  P C@ >> C
+  C IS-DIGIT IF{
+    RESULT 10 * >> RESULT
+    RESULT C '0' - + >> RESULT
+    2 RESULT
+  }{
+    1 RESULT
+  }
+}{
+  0 0
+}
+;
+
+: SET-BOARD-SIZE PARAM( DESC )
+/* expecting a string that looks like 10x10:xxx first number
+is width second is height.  At most two digits are allowed for
+each value.  Updates globals BOARD-WIDTH and BOARD-HEIGHT and
+returns a string OK or error description */
+VAR( WIDTH HEIGHT LEN )
+DESC PARSE-2-DIGITS >> WIDTH >> LEN
+LEN 0= IF{
+  "Board description must start with at most two digits"
+}{
+  DESC LEN + >> DESC
+  DESC C@ 'x' <> IF{
+    "Width must be at most two digits followed by x"
+  }{
+    DESC 1 + >> DESC
+    DESC PARSE-2-DIGITS >> HEIGHT >> LEN
+    LEN 0= IF{
+      "Expected a digit for height but got something else"
+    }{
+      DESC LEN + >> DESC
+      DESC C@ ':' <> IF{
+        "Height must be at most two digits and followed by a :"
+      }{
+        WIDTH >> BOARD-WIDTH
+        HEIGHT >> BOARD-HEIGHT
+        "OK"
+      }
+    }
+  }
+}
+;
+
 : INTO-BOARD PARAM( BOARD-STR )
 /* input like: 10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0 
   we are also assumig this is going to be all lowercase atm
  BOARD-STR is a pointer to the string */
 VAR( C P ) /* C = char we ar processing P = index into board array */
  0 >> P
- /* skip the 10x10: bit */
+ /* skip the 10x10: bit by scanning for : */
  BOARD-STR C@ >> C
  WHILE( C ':' <> ){
    BOARD-STR 1 + >> BOARD-STR
    BOARD-STR C@ >> C
  }
+ /* then go one further */
  BOARD-STR 1 + >> BOARD-STR
  BOARD-STR C@ >> C
  {
@@ -934,11 +997,12 @@ I 0 <> IF{
  'h' $F87F C! /* set F1 to h */
  $FF $F880 C!
  SETUPCHARS
- 10 >> BOARD-WIDTH
- 10 >> BOARD-HEIGHT
+ "10x10:c0c0i1e00a0c0a0a0d1b0d0d00b0l10a000c0c0c1k0a" >> BOARD-DESC
+ BOARD-DESC SET-BOARD-SIZE DROP
  _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
  INIT-BOARD
- "10x10:c0c0i1e00a0c0a0a0d1b0d0d00b0l10a000c0c0c1k0a" INTO-BOARD
+ BOARD-DESC INTO-BOARD
+ /* try next 8x12:a0d0b1a0j00a1a0p00a01c00h0a0a1d0a0a0l1b0b0a */
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
