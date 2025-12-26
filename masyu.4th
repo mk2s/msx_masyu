@@ -18,6 +18,7 @@ VAR( BOARD-POS )
 /* board is dynamically allocated at runtime so
 different size puzzles can be supported */
 ARRAY( INT: BOARD 0 )
+ARRAY( BYTE: LINEBUF 80 )
 
 /* END GLOBALS */
 
@@ -49,6 +50,16 @@ WHILE( CHSNS ){
     stuffs more than one char in the buffer */
   CHGET DROP
 }
+;
+
+: CVTCSTR PARAM( BUF )
+/* convert from buffered line input to cstr */
+/* buffered has two bytes at the start first
+is length of butffer, second is actual len.
+we will put \0 after str and return given address
+plus 2 */
+0 ( BUF 1 + C@ ) ( BUF 2 + ) + C!
+BUF 2 +
 ;
 
 : INIFNK
@@ -884,52 +895,18 @@ IF{
 1
 ;
 
-: DO-TEST
-/* look at current cursor pos and print
-stuff that will be helpful in testing.
-*/
-VAR( NEXTKEY CIRCLE-PART DIR-PART CONN-CNT )
-BOARD [ BOARD-POS ] CELL-TO-PARTS >> DIR-PART >> CIRCLE-PART
-CIRCLE-PART BLACK = IF{
-  5 23 "BLACK " STRXY
-  DIR-PART COUNT-CONNECTIONS >> CONN-CNT
-  CONN-CNT 2 = IF{
-    BOARD-POS VALID-BLACK IF{
-      "VALID" STR.
-    }{
-      "NOT VALID" STR.
-    }
-  }{
-    "doesn't have two cons" STR.
-  }
-}{
-CIRCLE-PART WHITE = IF{
-  5 23 "WHITE " STRXY
-  DIR-PART COUNT-CONNECTIONS >> CONN-CNT
-  CONN-CNT 2 = IF{
-    BOARD-POS VALID-WHITE IF{
-      "VALID" STR.
-    }{
-      "NOT VALID" STR.
-    }
-  }{
-    "doesn't have two cons" STR.
-  }
-}|
-  5 23 "EMPTY" STRXY
-}
-{ /* loop to handle quit dialog */
-  GET-INPUT >> NEXTKEY
-  NEXTKEY 0= IF{
-    0
-  }{
-    NEXTKEY 121 = IF{ /* y */
-    1
-  }|
-    1
-  }
-  0=
-}WHILE
+: DO-DEFINITION
+/* allow user to type a puzzle definition. */
+VAR( BOARD-DEF )
+5 22 "enter puzzle" STRXY CRLF
+80 & LINEBUF C!
+& LINEBUF >> _DE
+$0a BDOS
+& LINEBUF CVTCSTR >> BOARD-DEF
+BOARD-DEF SET-BOARD-SIZE DROP
+_FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
+INIT-BOARD
+BOARD-DEF INTO-BOARD
 1
 ;
 
@@ -951,8 +928,8 @@ I 114 = IF{ /* r */
 I 104 = IF{ /* h for help */
   DO-HELP
 }|
-I 116 = IF{ /* t for test */
-  DO-TEST
+I 100 = IF{ /* d for definition */
+  DO-DEFINITION
 }|
   0 /* didn't process and don't need refresh */
 }
