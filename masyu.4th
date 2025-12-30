@@ -20,6 +20,25 @@ different size puzzles can be supported */
 ARRAY( INT: BOARD 0 )
 ARRAY( BYTE: LINEBUF 80 )
 
+5 CONST>> NUM-PUZZLES
+ARRAY( INT: PUZZLE-DESC NUM-PUZZLES PUZZLE-DEF NUM-PUZZLES )
+
+"6x6 Easy" >> PUZZLE-DESC [ 0 ]
+"6x6:l0d0a1b1f0100c" >> PUZZLE-DEF [ 0 ]
+
+"8x12 Hard" >> PUZZLE-DESC [ 1 ]
+"8x12:b0f1d0f1g1a00a0h0f0a1f1n0c0a0c0f1c1" >> PUZZLE-DEF [ 1 ]
+
+"10x10 Medium 1" >> PUZZLE-DESC [ 2 ]
+"10x10:e0a0d0g0a0c11b0a0i0a0d1f1c0g0a0a1b000i0d0a0" >> PUZZLE-DEF [ 2 ]
+
+"10x10 Medium 2" >> PUZZLE-DESC [ 3 ]
+"10x10:b0b00l10b11a0c0b1b0e0b0c1e0c10a0b0e0a0f0d0a1d1d00" >> PUZZLE-DEF [ 3 ]
+
+"12x12 Medium" >> PUZZLE-DESC [ 4 ]
+"12x12:b1c1b00b0f0s1d0a0a0b0a1000c0b0j0a1a0g0f1a1e0a0d0b0a0a00a0n0a0c01b" >> PUZZLE-DEF [ 4 ]
+
+
 /* END GLOBALS */
 
 
@@ -401,6 +420,8 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
   /* 96 is the char before lower a */
   C 96 - P + >> P /* move forward P by letter amount */
   }|
+    1 23 MOVE-CURSOR
+    BOARD-STR STR. CRLF
     "ERROR parsing" ERROR
   }
   BOARD-STR 1 + >> BOARD-STR
@@ -869,12 +890,12 @@ VAR( NEXTKEY )
 ;
 
 : DO-CHECK-BOARD
-VAR( NEXTKEY WHITE-CNT BLACK-CNT )
+VAR( NEXTKEY )
 END-CHECK
 IF{
-  5 23 "TRUE -- hit any key to continue" STRXY
+  5 23 "Solved! -- hit any key to continue" STRXY
 }{
-  5 23 "FALSE -- hit any key to continue" STRXY
+  5 23 "Not solved yet. -- hit any key to continue" STRXY
 }
 { /* loop to handle quit dialog */
   GET-INPUT >> NEXTKEY
@@ -892,6 +913,40 @@ IF{
 ;
 
 : DO-HELP
+1
+;
+
+: DO-SELECTION
+/* allow user to type a puzzle definition. */
+VAR( I NEXTKEY )
+CLS
+1 10 MOVE-CURSOR
+0 >> I
+WHILE( I NUM-PUZZLES < ){
+  I 1 + . ") " STR.
+  PUZZLE-DESC [ I ] STR. CRLF
+  I 1 + >> I
+}
+CRLF "Enter 1-5" STR.
+{ /* loop to handle quit dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+    NEXTKEY 49 >= 
+    NEXTKEY 53 <=
+    AND IF{
+      NEXTKEY 49 - >> I
+      PUZZLE-DEF [ I ] SET-BOARD-SIZE STR.
+      _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
+      INIT-BOARD
+      PUZZLE-DEF [ I ] INTO-BOARD
+      1
+  }|
+    0
+  }
+  0=
+}WHILE
 1
 ;
 
@@ -931,7 +986,9 @@ I 104 = IF{ /* h for help */
 I 100 = IF{ /* d for definition */
   DO-DEFINITION
 }|
-  0 /* didn't process and don't need refresh */
+I 115 = IF{ /* s for selection */
+  DO-SELECTION
+}|  0 /* didn't process and don't need refresh */
 }
 ;
 
