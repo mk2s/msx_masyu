@@ -929,10 +929,22 @@ IF{
 ;
 
 : DO-HELP
+VAR( NEXTKEY )
 CLS
 PAINT-HELP
-CHGET DROP
-1
+{ /* loop to handle dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+  NEXTKEY 121 = IF{ /* y */
+    1
+  }|
+    1
+  }
+  0=
+}WHILE
+1 /* we processed and need a screen refresh */
 ;
 
 : DO-SELECTION
