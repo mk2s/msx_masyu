@@ -43,6 +43,8 @@ ARRAY( INT: PUZZLE-DESC NUM-PUZZLES PUZZLE-DEF NUM-PUZZLES )
 "14x18 Medium"  >> PUZZLE-DESC [ 5 ]
 "14x18:h0a0d0l0b11a0e1d1b1a0e1g000b1c10f0a00a0a0d1k1d1c0a00h0a0a0e0h0d0a1d1a0a10a0a0c1a0e0f0b0a1c0b00d1i1h0g00a00a001c0b0f" >> PUZZLE-DEF [ 5 ]
 
+EXTVAR( BYTE: CLIKSW $F3DB )
+
 /* END GLOBALS */
 
 
@@ -100,12 +102,6 @@ $d5 BIOS
 _A
 ;
 
-: WAIT PARAM( COUNT )
-VAR( I )
-0 >> I
-WHILE( I COUNT < ){ I 1 + >> I }
-;
-
 : GET-MODIFIERS
 /* returns 0 for neither 1=SHIFT only, 2=CTL only
 3= both pressed */
@@ -121,7 +117,7 @@ _A CPL 3 AND
 /* given index into board we return
   x and y as needed by set-black/white */
 VAR( Y )
-IDX BOARD-WIDTH / >> Y
+IDX BOARD-WIDTH _/ >> Y
 IDX Y BOARD-WIDTH * - /* this leaves X on tos */
 Y
 ;
@@ -435,7 +431,7 @@ VAR( C P ) /* C = char we ar processing P = index into board array */
 ;
 
 : GET-DIRS PARAM( CELL )
-CELL 256 /
+CELL 256 _/
 ;
 
 : CELL-TO-PARTS PARAM( CELL )
@@ -769,15 +765,16 @@ WHILE( I BOARD-HEIGHT <= ){
 
 : PAINT-SCRN
  17 2 "MASYU" STRXY
- 17 10 "ARROW - MOVE" STRXY
- 17 11 "SHIFT - DRAW" STRXY
- 17 12 "CTRL - ERASE" STRXY
- 17 14 "C - CHECK" STRXY
- 17 15 "R - RESET" STRXY
- 17 16 "Q - QUIT" STRXY
- 17 18 "S - SELECT" STRXY
- 17 19 "D - CUSTOM" STRXY
- 17 21 "F1 - HELP" STRXY
+ 17 7 "ARROW - MOVE" STRXY
+ 17 8 "SHIFT - DRAW" STRXY
+ 17 9 "CTRL - ERASE" STRXY
+ 17 11 "C - CHECK" STRXY
+ 17 12 "R - RESET" STRXY
+ 17 13 "Q - QUIT" STRXY
+ 17 15 "S - SELECT" STRXY
+ 17 16 "D - CUSTOM" STRXY
+ 17 17 "K - KEYCLICK" STRXY
+ 17 19 "F1 - HELP" STRXY
  TOPOFBOX SIDESOFBOX BOTTOMOFBOX
 ;
 
@@ -944,6 +941,7 @@ VAR( NEXTKEY )
 VAR( NEXTKEY )
 END-CHECK
 IF{
+  /* maybe play sound here */
   5 23 "Solved! -- hit any key to continue" STRXY
 }{
   5 23 "Not solved yet. -- hit any key to continue" STRXY
@@ -1032,6 +1030,12 @@ BOARD-DEF INTO-BOARD
 1
 ;
 
+: DO-KEYCLICK
+/* toggle key click sound. */
+CLIKSW CPL $FF AND >> CLIKSW
+0
+;
+
 : MAIN-PROCESS-KEY PARAM( I )
 /* I is key code
 returns 0 if didn't process
@@ -1055,6 +1059,9 @@ I 100 = IF{ /* d for definition */
 }|
 I 115 = IF{ /* s for selection */
   DO-SELECTION
+}|
+I 107 = IF{ /* k for toggle keyclick */
+  DO-KEYCLICK
 }|  0 /* didn't process and don't need refresh */
 }
 ;
@@ -1097,12 +1104,12 @@ I 0 <> IF{
  /* INIFNK */
  'h' $F87F C! /* set F1 to h */
  $FF $F880 C!
+ 0 >> CLIKSW /* turn off keyclick */
  SETUPCHARS
  PUZZLE-DEF [ 0 ] SET-BOARD-SIZE DROP
  _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
  INIT-BOARD
  PUZZLE-DEF [ 0 ] INTO-BOARD
- /* try next 8x12:a0d0b1a0j00a1a0p00a01c00h0a0a1d0a0a0l1b0b0a */
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
  { /* main loop */
