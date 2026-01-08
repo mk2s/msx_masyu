@@ -9,18 +9,20 @@
 1 CONST>> WHITE
 2 CONST>> BLACK
 
+200 CONST>> LINEBUF-SIZE
+
 /* GLOBALS */
 /* dimentions of the board */
-VAR( BOARD-WIDTH BOARD-HEIGHT BOARD-DESC )
+VAR( BOARD-WIDTH BOARD-HEIGHT )
 
 /* cursor position on the board */
 VAR( BOARD-POS )
 /* board is dynamically allocated at runtime so
 different size puzzles can be supported */
 ARRAY( INT: BOARD 0 )
-ARRAY( BYTE: LINEBUF 80 )
+ARRAY( BYTE: LINEBUF LINEBUF-SIZE )
 
-5 CONST>> NUM-PUZZLES
+6 CONST>> NUM-PUZZLES
 ARRAY( INT: PUZZLE-DESC NUM-PUZZLES PUZZLE-DEF NUM-PUZZLES )
 
 "6x6 Easy" >> PUZZLE-DESC [ 0 ]
@@ -38,6 +40,8 @@ ARRAY( INT: PUZZLE-DESC NUM-PUZZLES PUZZLE-DEF NUM-PUZZLES )
 "12x12 Medium" >> PUZZLE-DESC [ 4 ]
 "12x12:b1c1b00b0f0s1d0a0a0b0a1000c0b0j0a1a0g0f1a1e0a0d0b0a0a00a0n0a0c01b" >> PUZZLE-DEF [ 4 ]
 
+"14x18 Medium"  >> PUZZLE-DESC [ 5 ]
+"14x18:h0a0d0l0b11a0e1d1b1a0e1g000b1c10f0a00a0a0d1k1d1c0a00h0a0a0e0h0d0a1d1a0a10a0a0c1a0e0f0b0a1c0b00d1i1h0g00a00a001c0b0f" >> PUZZLE-DEF [ 5 ]
 
 /* END GLOBALS */
 
@@ -989,14 +993,14 @@ WHILE( I NUM-PUZZLES < ){
   PUZZLE-DESC [ I ] STR. CRLF
   I 1 + >> I
 }
-CRLF "Enter 1-5" STR.
+CRLF "Enter 1-6" STR.
 { /* loop to handle quit dialog */
   GET-INPUT >> NEXTKEY
   NEXTKEY 0= IF{
     0
   }{
     NEXTKEY 49 >= 
-    NEXTKEY 53 <=
+    NEXTKEY 54 <=
     AND IF{
       NEXTKEY 49 - >> I
       PUZZLE-DEF [ I ] SET-BOARD-SIZE STR.
@@ -1016,11 +1020,12 @@ CRLF "Enter 1-5" STR.
 /* allow user to type a puzzle definition. */
 VAR( BOARD-DEF )
 5 22 "enter puzzle" STRXY CRLF
-80 & LINEBUF C!
+LINEBUF-SIZE & LINEBUF C!
 & LINEBUF >> _DE
 $0a BDOS
 & LINEBUF CVTCSTR >> BOARD-DEF
 BOARD-DEF SET-BOARD-SIZE DROP
+/* instead of dropping we need error checking */
 _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
 INIT-BOARD
 BOARD-DEF INTO-BOARD
@@ -1093,11 +1098,10 @@ I 0 <> IF{
  'h' $F87F C! /* set F1 to h */
  $FF $F880 C!
  SETUPCHARS
- "10x10:c0c0i1e00a0c0a0a0d1b0d0d00b0l10a000c0c0c1k0a" >> BOARD-DESC
- BOARD-DESC SET-BOARD-SIZE DROP
+ PUZZLE-DEF [ 0 ] SET-BOARD-SIZE DROP
  _FREE BOARD-WIDTH BOARD-HEIGHT * 2 * ARRAY>> BOARD
  INIT-BOARD
- BOARD-DESC INTO-BOARD
+ PUZZLE-DEF [ 0 ] INTO-BOARD
  /* try next 8x12:a0d0b1a0j00a1a0p00a01c00h0a0a1d0a0a0l1b0b0a */
  0 MOVE-BOARD
  TRUE /* start by redrawing screen */
