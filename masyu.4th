@@ -775,6 +775,7 @@ WHILE( I BOARD-HEIGHT <= ){
  17 16 "D - CUSTOM" STRXY
  17 17 "K - KEYCLICK" STRXY
  17 19 "F1 - HELP" STRXY
+ 17 20 "T - CREDITS" STRXY
  TOPOFBOX SIDESOFBOX BOTTOMOFBOX
 ;
 
@@ -820,6 +821,24 @@ WHILE( I BOARD-HEIGHT <= ){
  176 32 32 CHPUT CHPUT CHPUT
 
  15 23 "PRESS ANY KEY " STRXY
+;
+
+: PAINT-CREDITS
+ 1 2 "H-FORTH was used to compile" STRXY
+ 1 3 "           this program." STRXY
+ 1 4 "H-FORTH was written by" STRXY
+ 1 5 "           A. Hiramatsu" STRXY
+ 1 7 "github.com/MIN0/H-FORTH_MSX" STRXY
+
+ 1 9 "Read more about Masyu at:" STRXY
+ 1 10 "  en.wikipedia.org/wiki/Masyu" STRXY
+
+ 1 12 "Masyu for MSX brought to you" STRXY
+ 1 13 "  by TwoGuysFromVA" STRXY
+ 1 15 "    Maki Kato, Paulo Gonzaga" STRXY
+ 1 17 "    github.com/mk2s/msx_masyu" STRXY
+
+ 1 23 "Hit any key to return" STRXY
 ;
 
 : STICK-TO-DIR PARAM( I )
@@ -980,6 +999,25 @@ PAINT-HELP
 1 /* we processed and need a screen refresh */
 ;
 
+: DO-CREDITS
+VAR( NEXTKEY )
+CLS
+PAINT-CREDITS
+{ /* loop to handle dialog */
+  GET-INPUT >> NEXTKEY
+  NEXTKEY 0= IF{
+    0
+  }{
+  NEXTKEY 121 = IF{ /* y */
+    1
+  }|
+    1
+  }
+  0=
+}WHILE
+1 /* we processed and need a screen refresh */
+;
+
 : DO-SELECTION
 /* allow user to type a puzzle definition. */
 VAR( I NEXTKEY )
@@ -1062,6 +1100,9 @@ I 115 = IF{ /* s for selection */
 }|
 I 107 = IF{ /* k for toggle keyclick */
   DO-KEYCLICK
+}|
+I 116 = IF{ /* t for credits */
+  DO-CREDITS
 }|  0 /* didn't process and don't need refresh */
 }
 ;
