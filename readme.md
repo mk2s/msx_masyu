@@ -20,6 +20,9 @@ Move around the board with arrow keys.  Hold shif to connect cells, hold ctl to 
 - lines must turn inside black circles and continue straight through the next square.  In other words two lines of at least two units long meet at 90 degrees inside a black circle.
 - Hint: each puzzle has only one solution.
 
+### How to make .rom form .dsk
+I used [dsk2rom](https://github.com/joyrex2001/dsk2rom) and used `./dsk2rom -fac 2 masyu.dsk masyu.rom`
+
 ### Acknowledgements ###
 * Thanks to my family for supporting my hobby
 * Thank you to Paulo for listening to my thoughts about this, and for his code contributions.
