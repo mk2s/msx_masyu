@@ -29,3 +29,4 @@ I used [dsk2rom](https://github.com/joyrex2001/dsk2rom) and used `./dsk2rom -fac
 * Thanks to Hiramatsu san for the H-FORTH compiler; it worked out nicely 25+ years later.
 * Thanks to the folks at MSXDev.org for the oppourtunity to create something for MSX, and for the nice writeup.
 * Thanks to the folks running msx.org and "MSX Assembly Page" for providing valuable resouces for the community.
+* Thanks to VampireMSX for testing and suggestions and general MSX guidance.
